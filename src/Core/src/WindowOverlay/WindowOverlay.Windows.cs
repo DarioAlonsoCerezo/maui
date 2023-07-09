@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Microsoft.Maui.Graphics;
+using Microsoft.Maui.Graphics.Platform;
 using Microsoft.Maui.Graphics.Win2D;
 using Microsoft.Maui.Handlers;
 using Microsoft.UI.Xaml;
@@ -11,7 +12,7 @@ namespace Microsoft.Maui
 	{
 		W2DGraphicsView? _graphicsView;
 		Frame? _frame;
-		Panel? _panel;
+		WindowRootViewContainer? _panel;
 		FrameworkElement? _platformElement;
 
 		/// <inheritdoc/>
@@ -26,11 +27,15 @@ namespace Microsoft.Maui
 			_platformElement = Window.Content.ToPlatform();
 			if (_platformElement == null)
 				return false;
+
 			var handler = Window.Handler as WindowHandler;
 			if (handler?.PlatformView is not Window _window)
 				return false;
 
-			_panel = _window.Content as Panel;
+			_panel = _window.Content as WindowRootViewContainer;
+			if (_panel is null)
+				return false;
+
 			// Capture when the frame is navigating.
 			// When it is, we will clear existing adorners.
 			if (_platformElement is Frame frame)
@@ -52,7 +57,7 @@ namespace Microsoft.Maui
 			_graphicsView.IsHitTestVisible = false;
 			_graphicsView.Visibility = UI.Xaml.Visibility.Collapsed;
 
-			_panel?.Children.Add(_graphicsView);
+			_panel.AddOverlay(_graphicsView);
 
 			IsPlatformViewInitialized = true;
 			return IsPlatformViewInitialized;
@@ -77,8 +82,6 @@ namespace Microsoft.Maui
 		{
 			if (_frame != null)
 				_frame.Navigating -= FrameNavigating;
-			if (_panel != null)
-				_panel.Children.Remove(_graphicsView);
 			if (_platformElement != null)
 			{
 				_platformElement.Tapped -= ViewTapped;
@@ -88,8 +91,10 @@ namespace Microsoft.Maui
 			{
 				_graphicsView.Tapped -= ViewTapped;
 				_graphicsView.PointerMoved -= PointerMoved;
+				if (_panel != null)
+					_panel.RemoveOverlay(_graphicsView);
+				_graphicsView = null;
 			}
-			_graphicsView = null;
 			IsPlatformViewInitialized = false;
 		}
 

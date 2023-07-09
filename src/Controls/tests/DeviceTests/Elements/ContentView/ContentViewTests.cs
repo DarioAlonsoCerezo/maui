@@ -9,7 +9,7 @@ using Xunit;
 namespace Microsoft.Maui.DeviceTests
 {
 	[Category(TestCategory.ContentView)]
-	public partial class ContentViewTests : HandlerTestBase
+	public partial class ContentViewTests : ControlsHandlerTestBase
 	{
 		void SetupBuilder()
 		{
@@ -50,6 +50,68 @@ namespace Microsoft.Maui.DeviceTests
 				Assert.True(GetChildCount(contentViewHandler) == 1);
 				Assert.True(GetContentChildCount(contentViewHandler) == 3);
 			});
+		}
+
+		[Fact]
+		public async Task PropagateContextCorrectly()
+		{
+			SetupBuilder();
+
+			var bindingContext = new object();
+
+			var child = new Label { Text = "Content 1" };
+
+			var contentView = new Microsoft.Maui.Controls.ContentView
+			{
+				BindingContext = bindingContext
+			};
+
+			var contentViewHandler = await CreateHandlerAsync<ContentViewHandler>(contentView);
+
+			await InvokeOnMainThreadAsync(() =>
+			{
+				contentView.Content = child;
+				Assert.Equal(1, GetChildCount(contentViewHandler));
+				Assert.True(GetContentChildCount(contentViewHandler) == 0);
+				Assert.True(child.BindingContext == bindingContext);
+			});
+		}
+
+		[Fact(DisplayName = "ContentView Does Not Leak")]
+		public async Task DoesNotLeak()
+		{
+			SetupBuilder();
+			WeakReference viewReference = null;
+			WeakReference handlerReference = null;
+			WeakReference platformReference = null;
+
+			{
+				var view = new Microsoft.Maui.Controls.ContentView();
+				var page = new ContentPage { Content = view };
+				await CreateHandlerAndAddToWindow(page, () =>
+				{
+					viewReference = new(view);
+					handlerReference = new(view.Handler);
+					platformReference = new(view.Handler.PlatformView);
+					page.Content = null;
+				});
+			}
+
+			Assert.NotNull(viewReference);
+			Assert.NotNull(platformReference);
+			Assert.NotNull(handlerReference);
+
+			// Multiple GCs are sometimes required on iOS
+			for (int i = 0; i < 3; i++)
+			{
+				await Task.Yield();
+				GC.Collect();
+				GC.WaitForPendingFinalizers();
+			}
+
+			Assert.False(viewReference.IsAlive, "View should not be alive!");
+			Assert.False(handlerReference.IsAlive, "Handler should not be alive!");
+			Assert.False(platformReference.IsAlive, "PlatformView should not be alive!");
 		}
 	}
 }

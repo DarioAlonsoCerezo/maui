@@ -399,7 +399,9 @@ namespace Microsoft.Maui.Platform
 
 			var titleEdgeInsets = new UIEdgeInsets(spacing, -imageSize.Width, -imageSize.Height, 0.0f);
 #pragma warning disable CA1416 // TODO: 'TitleEdgeInsets', 'ImageEdgeInsets' has [UnsupportedOSPlatform("ios15.0")]
+#pragma warning disable CA1422 // Validate platform compatibility
 			button.TitleEdgeInsets = titleEdgeInsets;
+
 
 			var labelString = button.TitleLabel.Text ?? string.Empty;
 
@@ -408,6 +410,7 @@ namespace Microsoft.Maui.Platform
 #pragma warning restore BI1234 // Type or member is obsolete
 			var imageEdgeInsets = new UIEdgeInsets(-(titleSize.Height + spacing), 0.0f, 0.0f, -titleSize.Width);
 			button.ImageEdgeInsets = imageEdgeInsets;
+#pragma warning restore CA1422 // Validate platform compatibility
 #pragma warning restore CA1416
 		}
 
@@ -1099,10 +1102,8 @@ namespace Microsoft.Maui.Platform
 			if (Element == null)
 				return;
 
-			Element.IsOpen = true;
+			Element.IsOpen = isOpen;
 		}
-
-
 
 		internal void ProgrammaticallyOpenSwipeItem(OpenSwipeItem openSwipeItem, bool animated)
 		{
@@ -1134,8 +1135,10 @@ namespace Microsoft.Maui.Platform
 
 			var swipeItems = GetSwipeItemsByDirection();
 
-			if (swipeItems == null || swipeItems.Where(s => GetIsVisible(s)).Count() == 0)
+			if (swipeItems is null || !swipeItems.Any(GetIsVisible))
 				return;
+
+			UpdateIsOpen(true);
 
 			var swipeThreshold = GetSwipeThreshold();
 			UpdateOffset(swipeThreshold);

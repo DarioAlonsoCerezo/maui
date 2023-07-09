@@ -1,4 +1,5 @@
-﻿using Android.Content.Res;
+﻿using Android.App;
+using Android.Content.Res;
 
 namespace Microsoft.Maui.Platform
 {
@@ -13,9 +14,8 @@ namespace Microsoft.Maui.Platform
 
 			if (titleColor != null)
 			{
-				var androidColor = titleColor.ToPlatform();
-				if (!platformPicker.TextColors.IsOneColor(ColorStates.EditText, androidColor))
-					platformPicker.SetHintTextColor(ColorStateListExtensions.CreateEditText(androidColor));
+				if (PlatformInterop.CreateEditTextColorStateList(platformPicker.TextColors, titleColor.ToPlatform()) is ColorStateList c)
+					platformPicker.SetHintTextColor(c);
 			}
 		}
 
@@ -29,9 +29,8 @@ namespace Microsoft.Maui.Platform
 			}
 			else
 			{
-				var androidColor = textColor.ToPlatform();
-				if (!platformPicker.TextColors.IsOneColor(ColorStates.EditText, androidColor))
-					platformPicker.SetTextColor(ColorStateListExtensions.CreateEditText(androidColor));
+				if (PlatformInterop.CreateEditTextColorStateList(platformPicker.TextColors, textColor.ToPlatform()) is ColorStateList c)
+					platformPicker.SetTextColor(c);
 			}
 		}
 
@@ -46,6 +45,25 @@ namespace Microsoft.Maui.Platform
 				platformPicker.Text = null;
 			else
 				platformPicker.Text = picker.GetItem(picker.SelectedIndex);
+		}
+
+		internal static void UpdateFlowDirection(this AlertDialog alertDialog, MauiPicker platformPicker)
+		{
+			var platformLayoutDirection = platformPicker.LayoutDirection;
+
+			// Propagate the MauiPicker LayoutDirection to the AlertDialog
+			var dv = alertDialog.Window?.DecorView;
+
+			if (dv is not null)
+				dv.LayoutDirection = platformLayoutDirection;
+
+			var lv = alertDialog?.ListView;
+
+			if (lv is not null)
+			{
+				lv.LayoutDirection = platformLayoutDirection;
+				lv.TextDirection = platformLayoutDirection.ToTextDirection();
+			}
 		}
 	}
 }

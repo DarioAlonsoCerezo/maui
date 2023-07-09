@@ -1,3 +1,4 @@
+#nullable disable
 // error CS0618: 'FragmentStatePagerAdapter' is obsolete:
 #pragma warning disable 618
 using System.Collections.Generic;
@@ -49,6 +50,7 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 
 		public override Fragment CreateFragment(int position)
 		{
+
 			var shellContent = _items[position];
 			return new ShellFragmentContainer(shellContent, _mauiContext) { Arguments = Bundle.Empty };
 		}

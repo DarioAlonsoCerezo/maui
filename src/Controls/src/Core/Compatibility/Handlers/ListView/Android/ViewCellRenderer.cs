@@ -1,3 +1,4 @@
+#nullable disable
 using System;
 using System.Linq;
 using Android.Content;
@@ -268,8 +269,16 @@ namespace Microsoft.Maui.Controls.Handlers.Compatibility
 
 			public override void AddView(AView child)
 			{
-				base.AddView(child);
-				_currentView = child;
+				if (child.Parent is WrapperView wrapperView)
+				{
+					base.AddView(wrapperView);
+					_currentView = wrapperView;
+				}
+				else
+				{
+					base.AddView(child);
+					_currentView = child;
+				}
 			}
 
 			protected override void OnLayout(bool changed, int l, int t, int r, int b)

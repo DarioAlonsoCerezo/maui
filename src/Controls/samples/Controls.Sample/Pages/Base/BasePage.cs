@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Windows.Input;
 using Maui.Controls.Sample.Models;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 
 namespace Maui.Controls.Sample.Pages.Base
 {
@@ -12,6 +13,12 @@ namespace Maui.Controls.Sample.Pages.Base
 
 		public BasePage()
 		{
+			Application.Current.Resources.TryGetValue("LightBackgroundColor", out object lightBackgroundResource);
+			Application.Current.Resources.TryGetValue("DarkBackgroundColor", out object darkBackgroundResource);
+
+			if (lightBackgroundResource is Color lightBackgroundColor && darkBackgroundResource is Color darkBackgroundColor)
+				this.SetAppThemeColor(BackgroundColorProperty, lightBackgroundColor, darkBackgroundColor);
+
 			NavigateCommand = new Command(async () =>
 			{
 				if (SelectedItem != null)
@@ -64,6 +71,11 @@ namespace Maui.Controls.Sample.Pages.Base
 		{
 			var page = (Handler?.MauiContext?.Services?.GetService(model.Type) as Page) ?? (Page)Activator.CreateInstance(model.Type);
 			page.Title = model.Title;
+
+			if (model.ViewModel != null)
+			{
+				page.BindingContext = model.ViewModel;
+			}
 
 			return page;
 		}

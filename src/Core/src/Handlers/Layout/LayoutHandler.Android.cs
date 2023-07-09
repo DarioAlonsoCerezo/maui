@@ -15,8 +15,7 @@ namespace Microsoft.Maui.Handlers
 
 			var viewGroup = new LayoutViewGroup(Context!)
 			{
-				CrossPlatformMeasure = VirtualView.CrossPlatformMeasure,
-				CrossPlatformArrange = VirtualView.CrossPlatformArrange
+				CrossPlatformLayout = VirtualView
 			};
 
 			// .NET MAUI layouts should not impose clipping on their children	
@@ -33,8 +32,7 @@ namespace Microsoft.Maui.Handlers
 			_ = VirtualView ?? throw new InvalidOperationException($"{nameof(VirtualView)} should have been set by base class.");
 			_ = MauiContext ?? throw new InvalidOperationException($"{nameof(MauiContext)} should have been set by base class.");
 
-			PlatformView.CrossPlatformMeasure = VirtualView.CrossPlatformMeasure;
-			PlatformView.CrossPlatformArrange = VirtualView.CrossPlatformArrange;
+			PlatformView.CrossPlatformLayout = VirtualView;
 
 			PlatformView.RemoveAllViews();
 
@@ -67,7 +65,8 @@ namespace Microsoft.Maui.Handlers
 
 		void Clear(LayoutViewGroup platformView)
 		{
-			platformView.RemoveAllViews();
+			if (platformView != null && !platformView.IsDisposed())
+				platformView.RemoveAllViews();
 		}
 
 		public void Clear()
@@ -107,7 +106,7 @@ namespace Microsoft.Maui.Handlers
 
 		protected override void DisconnectHandler(LayoutViewGroup platformView)
 		{
-			// If we're being disconnected from the xplat element, then we should no longer be managing its chidren
+			// If we're being disconnected from the xplat element, then we should no longer be managing its children
 			Clear(platformView);
 			base.DisconnectHandler(platformView);
 		}

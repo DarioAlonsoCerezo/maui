@@ -1,4 +1,5 @@
-﻿using System;
+﻿#nullable disable
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
@@ -41,6 +42,10 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 
 		ItemTouchHelper _itemTouchHelper;
 		SimpleItemTouchHelperCallback _itemTouchHelperCallback;
+		WeakNotifyPropertyChangedProxy _layoutPropertyChangedProxy;
+		PropertyChangedEventHandler _layoutPropertyChanged;
+
+		~MauiRecyclerView() => _layoutPropertyChangedProxy?.Unsubscribe();
 
 		public MauiRecyclerView(Context context, Func<IItemsLayout> getItemsLayout, Func<TAdapter> getAdapter) : base(context)
 		{
@@ -57,9 +62,10 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 		public virtual void TearDownOldElement(TItemsView oldElement)
 		{
 			// Stop listening for layout property changes
-			if (ItemsLayout != null)
+			if (_layoutPropertyChangedProxy is not null)
 			{
-				ItemsLayout.PropertyChanged -= LayoutPropertyChanged;
+				_layoutPropertyChangedProxy.Unsubscribe();
+				_layoutPropertyChanged = null;
 			}
 
 			// Stop listening for ScrollTo requests
@@ -282,14 +288,16 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 
 		public virtual void UpdateLayoutManager()
 		{
-			if (ItemsLayout != null)
-				ItemsLayout.PropertyChanged -= LayoutPropertyChanged;
+			_layoutPropertyChangedProxy?.Unsubscribe();
 
 			ItemsLayout = _getItemsLayout();
 
 			// Keep track of the ItemsLayout's property changes
 			if (ItemsLayout != null)
-				ItemsLayout.PropertyChanged += LayoutPropertyChanged;
+			{
+				_layoutPropertyChanged ??= LayoutPropertyChanged;
+				_layoutPropertyChangedProxy = new WeakNotifyPropertyChangedProxy(ItemsLayout, _layoutPropertyChanged);
+			}
 
 			SetLayoutManager(SelectLayoutManager(ItemsLayout));
 
@@ -544,6 +552,7 @@ namespace Microsoft.Maui.Controls.Handlers.Items
 
 				// TODO hartez 2018/10/24 17:34:36 If this works, cache this layout manager as _emptyLayoutManager	
 				SetLayoutManager(new LinearLayoutManager(Context));
+				UpdateEmptyView();
 			}
 			else if (!showEmptyView && currentAdapter != ItemsViewAdapter)
 			{

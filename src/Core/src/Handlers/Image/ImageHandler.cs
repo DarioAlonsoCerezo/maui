@@ -7,14 +7,14 @@ using PlatformView = Android.Widget.ImageView;
 #elif WINDOWS
 using PlatformView = Microsoft.UI.Xaml.Controls.Image;
 #elif TIZEN
-using PlatformView = Tizen.UIExtensions.ElmSharp.Image;
+using PlatformView = Tizen.UIExtensions.NUI.Image;
 #elif (NETSTANDARD || !PLATFORM) || (NET6_0_OR_GREATER && !IOS && !ANDROID && !TIZEN)
 using PlatformView = System.Object;
 #endif
 
 namespace Microsoft.Maui.Handlers
 {
-	public partial class ImageHandler : IImageHandler
+	public partial class ImageHandler : IImageHandler, IImageSourcePartSetter
 	{
 		public static IPropertyMapper<IImage, IImageHandler> Mapper = new PropertyMapper<IImage, IImageHandler>(ViewHandler.ViewMapper)
 		{
@@ -32,13 +32,19 @@ namespace Microsoft.Maui.Handlers
 
 		ImageSourcePartLoader? _imageSourcePartLoader;
 		public ImageSourcePartLoader SourceLoader =>
-			_imageSourcePartLoader ??= new ImageSourcePartLoader(this, () => VirtualView, OnSetImageSource);
+			_imageSourcePartLoader ??= new ImageSourcePartLoader(this);
 
 		public ImageHandler() : base(Mapper)
 		{
 		}
 
-		public ImageHandler(IPropertyMapper mapper) : base(mapper ?? Mapper)
+		public ImageHandler(IPropertyMapper? mapper)
+			: base(mapper ?? Mapper, CommandMapper)
+		{
+		}
+
+		public ImageHandler(IPropertyMapper? mapper, CommandMapper? commandMapper)
+			: base(mapper ?? Mapper, commandMapper ?? CommandMapper)
 		{
 		}
 

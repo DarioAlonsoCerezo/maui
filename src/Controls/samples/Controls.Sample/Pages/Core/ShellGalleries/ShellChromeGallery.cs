@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
+using Microsoft.Maui.Graphics;
 
 namespace Maui.Controls.Sample.Pages.ShellGalleries
 {
@@ -27,14 +28,18 @@ namespace Maui.Controls.Sample.Pages.ShellGalleries
 			{
 				flyoutBehavior.SelectedIndex = (int)AppShell.FlyoutBehavior;
 				flyoutHeaderBehavior.SelectedIndex = (int)AppShell.FlyoutHeaderBehavior;
+				AppShell.FlyoutBackdrop = SolidColorBrush.Pink;
 			}
 			else
 			{
 				flyoutBehavior.SelectedIndex = 1;
 				flyoutHeaderBehavior.SelectedIndex = 0;
 			}
-
-			AppShell.FlyoutBackdrop = SolidColorBrush.Pink;
+		}
+		protected override void OnNavigatedTo(NavigatedToEventArgs args)
+		{
+			base.OnNavigatedTo(args);
+			popToRoot.IsVisible = Navigation.NavigationStack.Count > 1;
 		}
 
 		async void OnPushPage(object sender, EventArgs e)
@@ -47,6 +52,13 @@ namespace Maui.Controls.Sample.Pages.ShellGalleries
 			if (Navigation.NavigationStack.Count > 1)
 				await Navigation.PopAsync();
 		}
+
+		async void OnPopToRoot(object sender, EventArgs e)
+		{
+			await Navigation.PopToRootAsync();
+		}
+
+
 
 		void OnFlyoutHeaderBehaviorSelectedIndexChanged(object sender, EventArgs e)
 		{
@@ -108,6 +120,24 @@ namespace Maui.Controls.Sample.Pages.ShellGalleries
 		void OnToggleTabBar(object sender, EventArgs e)
 		{
 			Shell.SetTabBarIsVisible(this, !Shell.GetTabBarIsVisible(this));
+		}
+
+		void OnToggleTabBarTitleColor(object sender, EventArgs e)
+		{
+			var random = new Random();
+			Shell.SetTabBarTitleColor(Shell.Current.CurrentItem, Color.FromRgb(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255)));
+		}
+
+		void OnToggleTabBarUnselectedColor(object sender, EventArgs e)
+		{
+			var random = new Random();
+			Shell.SetTabBarUnselectedColor(Shell.Current.CurrentItem, Color.FromRgb(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255)));
+		}
+
+		void OnToggleTabBarForegroundColor(object sender, EventArgs e)
+		{
+			var random = new Random();
+			Shell.SetTabBarForegroundColor(Shell.Current.CurrentItem, Color.FromRgb(random.Next(0, 255), random.Next(0, 255), random.Next(0, 255)));
 		}
 
 		protected void AddSearchHandler(string placeholder)

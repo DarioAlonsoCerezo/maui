@@ -1,11 +1,11 @@
-﻿#nullable enable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Microsoft.Maui.Controls.Platform;
+using Microsoft.Maui.Platform;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using System.Collections.ObjectModel;
 using WApp = Microsoft.UI.Xaml.Application;
 using WBrush = Microsoft.UI.Xaml.Media.Brush;
 
@@ -27,8 +27,8 @@ namespace Microsoft.Maui.Controls.Handlers
 		ObservableCollection<NavigationViewItemViewModel> _mainLevelTabs;
 		ShellItem? _shellItem;
 		SearchHandler? _currentSearchHandler;
-		MauiNavigationView? _mauiNavigationView;
-		MauiNavigationView ShellItemNavigationView => _mauiNavigationView!;
+		IShellAppearanceElement? _shellAppearanceElement;
+		MauiNavigationView ShellItemNavigationView => (PlatformView as MauiNavigationView)!;
 
 		public ShellItemHandler() : base(Mapper, CommandMapper)
 		{
@@ -37,28 +37,13 @@ namespace Microsoft.Maui.Controls.Handlers
 
 		protected override FrameworkElement CreatePlatformElement()
 		{
-			var platformView = new MauiNavigationView()
-			{
-				PaneDisplayMode = NavigationViewPaneDisplayMode.Top,
-				IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed,
-				IsSettingsVisible = false,
-				IsPaneToggleButtonVisible = false,
-				MenuItemTemplate = (UI.Xaml.DataTemplate)WApp.Current.Resources["TabBarNavigationViewMenuItem"],
-				MenuItemsSource = _mainLevelTabs
-			};
-
-			_mauiNavigationView = platformView;
-			platformView.SetApplicationResource("NavigationViewMinimalHeaderMargin", null);
-			platformView.SetApplicationResource("NavigationViewHeaderMargin", null);
-
-			_mauiNavigationView.Loaded += OnNavigationViewLoaded;
-			return platformView;
+			return new MauiNavigationView();
 		}
 
 		void OnNavigationViewLoaded(object sender, RoutedEventArgs e)
 		{
-			if (_mauiNavigationView != null)
-				_mauiNavigationView.Loaded -= OnNavigationViewLoaded;
+			if (PlatformView is not null)
+				PlatformView.Loaded -= OnNavigationViewLoaded;
 
 			UpdateSearchHandler();
 			MapMenuItems();
@@ -66,6 +51,23 @@ namespace Microsoft.Maui.Controls.Handlers
 
 		protected override void ConnectHandler(FrameworkElement platformView)
 		{
+			ShellItemNavigationView.PaneDisplayMode = NavigationViewPaneDisplayMode.Top;
+			ShellItemNavigationView.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
+			ShellItemNavigationView.IsSettingsVisible = false;
+			ShellItemNavigationView.IsPaneToggleButtonVisible = false;
+			ShellItemNavigationView.MenuItemTemplate = (UI.Xaml.DataTemplate)WApp.Current.Resources["TabBarNavigationViewMenuItem"];
+			ShellItemNavigationView.MenuItemsSource = _mainLevelTabs;
+
+			platformView.SetApplicationResource("NavigationViewMinimalHeaderMargin", null);
+			platformView.SetApplicationResource("NavigationViewHeaderMargin", null);
+			platformView.SetApplicationResource("NavigationViewContentMargin", null);
+			platformView.SetApplicationResource("NavigationViewMinimalContentMargin", null);
+
+			if (platformView.IsLoaded)
+				OnNavigationViewLoaded(ShellItemNavigationView, new RoutedEventArgs());
+			else
+				platformView.Loaded += OnNavigationViewLoaded;
+
 			base.ConnectHandler(platformView);
 			ShellItemNavigationView.SelectionChanged += OnNavigationTabChanged;
 		}
@@ -73,10 +75,9 @@ namespace Microsoft.Maui.Controls.Handlers
 		protected override void DisconnectHandler(FrameworkElement platformView)
 		{
 			base.DisconnectHandler(platformView);
-			ShellItemNavigationView.SelectionChanged -= OnNavigationTabChanged;
 
-			if (_mauiNavigationView != null)
-				_mauiNavigationView.Loaded -= OnNavigationViewLoaded;
+			ShellItemNavigationView.SelectionChanged -= OnNavigationTabChanged;
+			platformView.Loaded -= OnNavigationViewLoaded;
 
 			if (_currentShellSection != null)
 				_currentShellSection.PropertyChanged -= OnCurrentShellSectionPropertyChanged;
@@ -124,11 +125,6 @@ namespace Microsoft.Maui.Controls.Handlers
 
 		void MapMenuItems()
 		{
-			// NavigationView makes a lot of changes to properties before it's been loaded
-			// So we like to just wait until it's loaded to project our changes over it
-			if (!ShellItemNavigationView.IsLoaded)
-				return;
-
 			IShellItemController shellItemController = VirtualView;
 			var items = new List<BaseShellItem>();
 
@@ -243,8 +239,10 @@ namespace Microsoft.Maui.Controls.Handlers
 
 					autoSuggestBox.PlaceholderText = _currentSearchHandler.Placeholder;
 					autoSuggestBox.IsEnabled = _currentSearchHandler.IsSearchEnabled;
-					autoSuggestBox.ItemsSource = _currentSearchHandler.ItemsSource;
+					autoSuggestBox.ItemsSource = CreateSearchHandlerItemsSource();
+					autoSuggestBox.ItemTemplate = (UI.Xaml.DataTemplate)WApp.Current.Resources["SearchHandlerItemTemplate"];
 					autoSuggestBox.Text = _currentSearchHandler.Query;
+					autoSuggestBox.UpdateTextOnSelect = false;
 
 					_currentSearchHandler.PropertyChanged += OnCurrentSearchHandlerPropertyChanged;
 
@@ -284,14 +282,40 @@ namespace Microsoft.Maui.Controls.Handlers
 		{
 			if (_currentSearchHandler == null)
 				return;
-			((ISearchHandlerController)_currentSearchHandler).ItemSelected(args.SelectedItem);
+
+			object selectedItem = args.SelectedItem;
+
+			if (selectedItem is ItemTemplateContext itemTemplateContext)
+				selectedItem = itemTemplateContext.Item;
+
+			// Currently the search handler on each platform clears out the text when an answer is chosen
+			// Ideally we'd have a "TextMemberPath" property that could bind to a property in the item source
+			// to indicate what to display
+			if (String.IsNullOrEmpty(sender.TextMemberPath))
+				sender.Text = String.Empty;
+
+			((ISearchHandlerController)_currentSearchHandler).ItemSelected(selectedItem);
+
 		}
 
 		void OnSearchBoxQuerySubmitted(Microsoft.UI.Xaml.Controls.AutoSuggestBox sender, Microsoft.UI.Xaml.Controls.AutoSuggestBoxQuerySubmittedEventArgs args)
 		{
 			if (_currentSearchHandler == null)
 				return;
+
 			((ISearchHandlerController)_currentSearchHandler).QueryConfirmed();
+		}
+
+		object? CreateSearchHandlerItemsSource()
+		{
+			if (_currentSearchHandler == null)
+				return null;
+
+			if (_currentSearchHandler.ItemsSource == null)
+				return _currentSearchHandler.ItemsSource;
+
+			return TemplatedItemSourceFactory.Create(_currentSearchHandler.ItemsSource, _currentSearchHandler.ItemTemplate, _currentSearchHandler,
+				null, null, null, MauiContext);
 		}
 
 		void OnCurrentSearchHandlerPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -308,7 +332,7 @@ namespace Microsoft.Maui.Controls.Handlers
 					ShellItemNavigationView.AutoSuggestBox.IsEnabled = _currentSearchHandler.IsSearchEnabled;
 					break;
 				case nameof(SearchHandler.ItemsSource):
-					ShellItemNavigationView.AutoSuggestBox.ItemsSource = _currentSearchHandler.ItemsSource;
+					ShellItemNavigationView.AutoSuggestBox.ItemsSource = CreateSearchHandlerItemsSource();
 					break;
 				case nameof(SearchHandler.Query):
 					ShellItemNavigationView.AutoSuggestBox.Text = _currentSearchHandler.Query;
@@ -418,28 +442,40 @@ namespace Microsoft.Maui.Controls.Handlers
 		{
 			if (appearance is IShellAppearanceElement a)
 			{
+				_shellAppearanceElement = a;
 				// This means the template hasn't been applied yet
-				if (ShellItemNavigationView.TopNavArea == null)
+				if (ShellItemNavigationView.TopNavArea is null)
 				{
 					ShellItemNavigationView.OnApplyTemplateFinished += OnApplyTemplateFinished;
-
-					void OnApplyTemplateFinished(object? sender, EventArgs e)
-					{
-						ShellItemNavigationView.OnApplyTemplateFinished -= OnApplyTemplateFinished;
-						ApplyAppearance();
-					}
-				}
-				else
-				{
-					ApplyAppearance();
 				}
 
-				void ApplyAppearance()
-				{
-					ShellItemNavigationView.UpdateTopNavAreaBackground(a.EffectiveTabBarBackgroundColor?.AsPaint());
-					ShellItemNavigationView.UpdateTopNavigationViewItemTextColor(a.EffectiveTabBarForegroundColor?.AsPaint());
-				}
+				UpdateAppearance(_shellAppearanceElement);
 			}
+		}
+
+		protected virtual void UpdateAppearance(IShellAppearanceElement appearance)
+		{
+			if (_shellAppearanceElement is null)
+				return;
+
+			var backgroundColor = _shellAppearanceElement.EffectiveTabBarBackgroundColor?.AsPaint();
+			var foregroundColor = _shellAppearanceElement.EffectiveTabBarForegroundColor?.AsPaint();
+			var unselectedColor = _shellAppearanceElement.EffectiveTabBarUnselectedColor?.AsPaint();
+			var titleColor = _shellAppearanceElement.EffectiveTabBarTitleColor?.AsPaint();
+
+			ShellItemNavigationView.UpdateTopNavAreaBackground(backgroundColor);
+			ShellItemNavigationView.UpdateTopNavigationViewItemUnselectedColor(unselectedColor);
+			ShellItemNavigationView.UpdateTopNavigationViewItemTextSelectedColor(titleColor ?? foregroundColor);
+			ShellItemNavigationView.UpdateTopNavigationViewItemTextColor(unselectedColor);
+			ShellItemNavigationView.UpdateTopNavigationViewItemSelectedColor(foregroundColor ?? titleColor);
+		}
+
+		void OnApplyTemplateFinished(object? sender, EventArgs e)
+		{
+			ShellItemNavigationView.OnApplyTemplateFinished -= OnApplyTemplateFinished;
+
+			if (_shellAppearanceElement is not null)
+				UpdateAppearance(_shellAppearanceElement);
 		}
 	}
 }

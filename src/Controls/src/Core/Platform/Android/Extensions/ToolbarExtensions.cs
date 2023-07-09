@@ -1,5 +1,4 @@
-﻿#nullable enable
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Android.Content;
@@ -155,6 +154,11 @@ namespace Microsoft.Maui.Controls.Platform
 
 				nativeToolbar.NavigationIcon.SetColorFilter(navIconColor, FilterMode.SrcAtop);
 			}
+
+			if (navIconColor != null && nativeToolbar.OverflowIcon != null)
+			{
+				nativeToolbar.OverflowIcon.SetColorFilter(navIconColor, FilterMode.SrcAtop);
+			}
 		}
 
 		public static void UpdateBarTextColor(this AToolbar nativeToolbar, Toolbar toolbar)
@@ -174,7 +178,7 @@ namespace Microsoft.Maui.Controls.Platform
 			{
 				nativeToolbar.SetTitleTextColor(textColor.ToPlatform().ToArgb());
 			}
-			else
+			else if (_defaultTitleTextColor != null)
 			{
 				nativeToolbar.SetTitleTextColor(_defaultTitleTextColor);
 			}
@@ -238,7 +242,10 @@ namespace Microsoft.Maui.Controls.Platform
 			int toolBarItemCount = i;
 			while (toolBarItemCount < previousMenuItems.Count)
 			{
-				menu.RemoveItem(previousMenuItems[toolBarItemCount].ItemId);
+				if (menu != null)
+				{
+					menu.RemoveItem(previousMenuItems[toolBarItemCount].ItemId);
+				}
 				previousMenuItems[toolBarItemCount].Dispose();
 				previousMenuItems.RemoveAt(toolBarItemCount);
 			}
@@ -257,10 +264,10 @@ namespace Microsoft.Maui.Controls.Platform
 			List<ToolbarItem> previousToolBarItems,
 			Action<Context, IMenuItem, ToolbarItem>? updateMenuItemIcon = null)
 		{
-			var context = mauiContext.Context ??
+			var context = mauiContext?.Context ??
 					throw new ArgumentNullException($"{nameof(mauiContext.Context)}");
 
-			IMenu menu = toolbar.Menu;
+			IMenu? menu = toolbar.Menu;
 
 			item.PropertyChanged -= toolbarItemChanged;
 			item.PropertyChanged += toolbarItemChanged;
@@ -292,7 +299,7 @@ namespace Microsoft.Maui.Controls.Platform
 
 			if (menuItemIndex == null || menuItemIndex >= previousMenuItems?.Count)
 			{
-				menuitem = menu.Add(0, AView.GenerateViewId(), 0, newTitle) ??
+				menuitem = menu?.Add(0, AView.GenerateViewId(), 0, newTitle) ??
 					throw new InvalidOperationException($"Failed to create menuitem: {newTitle}");
 				previousMenuItems?.Add(menuitem);
 			}
@@ -319,6 +326,8 @@ namespace Microsoft.Maui.Controls.Platform
 
 			if (item.Order != ToolbarItemOrder.Secondary)
 				menuitem.SetShowAsAction(ShowAsAction.Always);
+			else
+				menuitem.SetShowAsAction(ShowAsAction.Never);
 
 			menuitem.SetOnMenuItemClickListener(new GenericMenuClickListener(((IMenuItemController)item).Activate));
 

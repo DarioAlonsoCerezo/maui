@@ -9,6 +9,7 @@ using Xunit.Abstractions;
 namespace Microsoft.Maui.Essentials.DeviceTests
 {
 
+	[Category("SecureStorage")]
 	[Collection("UsesPreferences")]
 	public class SecureStorage_Tests
 	{
@@ -154,6 +155,22 @@ namespace Microsoft.Maui.Essentials.DeviceTests
 				var v = await SecureStorage.GetAsync(i.ToString());
 				Assert.Equal(i.ToString(), v);
 			}
+		}
+
+		[Fact]
+		public async Task Set_Get_Remove_Async_MultipleTimes()
+		{
+			await Parallel.ForEachAsync(Enumerable.Range(0, 100), async (i, _) =>
+			{
+				var key = $"key{i}";
+				var value = $"value{i}";
+				await SecureStorage.SetAsync(key, value);
+				var fetched = await SecureStorage.GetAsync(key);
+				Assert.Equal(value, fetched);
+				SecureStorage.Remove(key);
+				fetched = await SecureStorage.GetAsync(key);
+				Assert.Null(fetched);
+			});
 		}
 	}
 }

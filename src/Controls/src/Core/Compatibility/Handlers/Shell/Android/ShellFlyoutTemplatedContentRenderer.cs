@@ -1,3 +1,4 @@
+#nullable disable
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
@@ -15,9 +16,9 @@ using Google.Android.Material.AppBar;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Controls.Internals;
 using Microsoft.Maui.Controls.Platform.Compatibility;
+using Microsoft.Maui.Layouts;
 using AView = Android.Views.View;
 using LP = Android.Views.ViewGroup.LayoutParams;
-using Microsoft.Maui.Layouts;
 
 namespace Microsoft.Maui.Controls.Platform.Compatibility
 {
@@ -122,21 +123,17 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 				// so we want to delay loading to the latest possible point in time so
 				// it doesn't delay initial startup.
 				GenericGlobalLayoutListener ggll = null;
-				ggll = new GenericGlobalLayoutListener(InitialLoad);
-				sfl.ViewTreeObserver.AddOnGlobalLayoutListener(ggll);
+				ggll = new GenericGlobalLayoutListener(InitialLoad, sfl);
 
-				void InitialLoad()
+				void InitialLoad(GenericGlobalLayoutListener listener, AView view)
 				{
 					OnFlyoutViewLayoutChanging();
 
 					if (_flyoutContentView == null || ggll == null)
 						return;
 
-					var listener = ggll;
 					ggll = null;
-
-					// Once initial load has finished let's just attach to Layout Changing
-					sfl.ViewTreeObserver.RemoveOnGlobalLayoutListener(listener);
+					listener.Invalidate();
 					sfl.LayoutChanging += OnFlyoutViewLayoutChanging;
 				}
 			}
@@ -199,6 +196,17 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 			UpdateContentPadding();
 		}
 
+
+		void DisconnectRecyclerView()
+		{
+			if (_flyoutContentView.IsAlive() &&
+				_flyoutContentView is RecyclerViewContainer rvc &&
+				rvc.GetAdapter() is ShellFlyoutRecyclerAdapter sfra)
+			{
+				sfra.Disconnect();
+			}
+		}
+
 		AView CreateFlyoutContent(ViewGroup rootView)
 		{
 			_rootView = rootView;
@@ -208,6 +216,8 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 				_contentView = null;
 				oldContentView.View = null;
 			}
+
+			DisconnectRecyclerView();
 
 			var content = ((IShellController)ShellContext.Shell).FlyoutContent;
 			if (content == null)
@@ -592,6 +602,26 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 
 		}
 
+		internal void Disconnect()
+		{
+			if (_shellContext?.Shell != null)
+				_shellContext.Shell.PropertyChanged -= OnShellPropertyChanged;
+
+			if (_flyoutHeader != null)
+				_flyoutHeader.MeasureInvalidated -= OnFlyoutHeaderMeasureInvalidated;
+
+			_flyoutHeader = null;
+
+			if (_footerView != null)
+				_footerView.View = null;
+
+			_headerView?.Disconnect();
+			DisconnectRecyclerView();
+
+			if (_contentView != null)
+				_contentView.View = null;
+		}
+
 		protected override void Dispose(bool disposing)
 		{
 			if (_disposed)
@@ -601,10 +631,7 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 
 			if (disposing)
 			{
-				_shellContext.Shell.PropertyChanged -= OnShellPropertyChanged;
-
-				if (_flyoutHeader != null)
-					_flyoutHeader.MeasureInvalidated -= OnFlyoutHeaderMeasureInvalidated;
+				Disconnect();
 
 				if (_appBar != null)
 				{
@@ -627,17 +654,13 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 					_contentView.View = null;
 
 				_flyoutContentView?.Dispose();
-				_headerView.Dispose();
+				_headerView?.Dispose();
 
-				if (_footerView != null)
-					_footerView.View = null;
-
-				_rootView.Dispose();
+				_rootView?.Dispose();
 				_defaultBackgroundColor?.Dispose();
 				_bgImage?.Dispose();
 
 				_contentView = null;
-				_flyoutHeader = null;
 				_rootView = null;
 				_headerView = null;
 				_shellContext = null;
@@ -715,15 +738,20 @@ namespace Microsoft.Maui.Controls.Platform.Compatibility
 					return;
 
 				_isdisposed = true;
-				if (disposing)
-				{
-					if (View != null)
-						View.PropertyChanged -= OnViewPropertyChanged;
-				}
 
-				View = null;
+				if (disposing)
+					Disconnect();
 
 				base.Dispose(disposing);
+			}
+
+			internal void Disconnect()
+			{
+				if (View != null)
+				{
+					View.PropertyChanged -= OnViewPropertyChanged;
+					View = null;
+				}
 			}
 
 			internal void SetFlyoutHeaderBehavior(FlyoutHeaderBehavior flyoutHeaderBehavior)

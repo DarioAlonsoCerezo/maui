@@ -1,6 +1,4 @@
-using System;
 using CoreGraphics;
-using Microsoft.Maui.Graphics;
 using UIKit;
 
 namespace Microsoft.Maui.Platform
@@ -9,56 +7,19 @@ namespace Microsoft.Maui.Platform
 	{
 		bool _userInteractionEnabled;
 
-		// TODO: Possibly reconcile this code with ViewHandlerExtensions.MeasureVirtualView
-		// If you make changes here please review if those changes should also
-		// apply to ViewHandlerExtensions.MeasureVirtualView
-		public override CGSize SizeThatFits(CGSize size)
-		{
-			if (CrossPlatformMeasure == null)
-			{
-				return base.SizeThatFits(size);
-			}
-
-			var width = size.Width;
-			var height = size.Height;
-
-			var crossPlatformSize = CrossPlatformMeasure(width, height);
-
-			return crossPlatformSize.ToCGSize();
-		}
-
-		// TODO: Possibly reconcile this code with ViewHandlerExtensions.LayoutVirtualView
-		// If you make changes here please review if those changes should also
-		// apply to ViewHandlerExtensions.LayoutVirtualView
-		public override void LayoutSubviews()
-		{
-			base.LayoutSubviews();
-
-			var bounds = AdjustForSafeArea(Bounds).ToRectangle();
-			CrossPlatformMeasure?.Invoke(bounds.Width, bounds.Height);
-			CrossPlatformArrange?.Invoke(bounds);
-		}
-
-		public override void SetNeedsLayout()
-		{
-			base.SetNeedsLayout();
-			Superview?.SetNeedsLayout();
-		}
-
 		public override void SubviewAdded(UIView uiview)
 		{
+			InvalidateConstraintsCache();
 			base.SubviewAdded(uiview);
 			Superview?.SetNeedsLayout();
 		}
 
 		public override void WillRemoveSubview(UIView uiview)
 		{
+			InvalidateConstraintsCache();
 			base.WillRemoveSubview(uiview);
 			Superview?.SetNeedsLayout();
 		}
-
-		internal Func<double, double, Size>? CrossPlatformMeasure { get; set; }
-		internal Func<Rect, Size>? CrossPlatformArrange { get; set; }
 
 		public override UIView HitTest(CGPoint point, UIEvent? uievent)
 		{
@@ -75,6 +36,8 @@ namespace Microsoft.Maui.Platform
 
 			return result;
 		}
+
+		internal bool UserInteractionEnabledOverride => _userInteractionEnabled;
 
 		public override bool UserInteractionEnabled
 		{

@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.Maui.Graphics;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using WBrush = Microsoft.UI.Xaml.Media.Brush;
-using WSolidColorBrush = Microsoft.UI.Xaml.Media.SolidColorBrush;
 using WScrollMode = Microsoft.UI.Xaml.Controls.ScrollMode;
+using WSolidColorBrush = Microsoft.UI.Xaml.Media.SolidColorBrush;
 
 namespace Microsoft.Maui.Platform
 {
@@ -26,7 +26,7 @@ namespace Microsoft.Maui.Platform
 		{
 			var brush = paint?.ToPlatform();
 
-			if (navigationView.TopNavArea != null)
+			if (navigationView.TopNavArea is not null)
 			{
 				if (brush is null)
 				{
@@ -42,13 +42,89 @@ namespace Microsoft.Maui.Platform
 					navigationView.TopNavArea.Resources["TopNavigationViewItemForegroundPressed"] = brush;
 					navigationView.TopNavArea.Resources["TopNavigationViewItemForegroundDisabled"] = brush;
 				}
+
+				navigationView.TopNavArea.RefreshThemeResources();
 			}
 
 			if (navigationView.MenuItemsSource is IList<NavigationViewItemViewModel> items)
 			{
 				foreach (var item in items)
 				{
-					item.Foreground = brush;
+					item.UnselectedTitleColor = brush;
+				}
+			}
+		}
+
+		public static void UpdateTopNavigationViewItemTextSelectedColor(this MauiNavigationView navigationView, Paint? paint)
+		{
+			var brush = paint?.ToPlatform();
+
+			if (navigationView.TopNavArea is not null)
+			{
+				if (brush is null)
+				{
+					navigationView.TopNavArea.Resources.Remove("TopNavigationViewItemForegroundSelected");
+					navigationView.TopNavArea.Resources.Remove("TopNavigationViewItemForegroundSelectedPointerOver");
+					navigationView.TopNavArea.Resources.Remove("TopNavigationViewItemForegroundSelectedPressed");
+					navigationView.TopNavArea.Resources.Remove("TopNavigationViewItemForegroundSelectedDisabled");
+				}
+				else
+				{
+					navigationView.TopNavArea.Resources["TopNavigationViewItemForegroundSelected"] = brush;
+					navigationView.TopNavArea.Resources["TopNavigationViewItemForegroundSelectedPointerOver"] = brush;
+					navigationView.TopNavArea.Resources["TopNavigationViewItemForegroundSelectedPressed"] = brush;
+					navigationView.TopNavArea.Resources["TopNavigationViewItemForegroundSelectedDisabled"] = brush;
+				}
+
+				navigationView.TopNavArea.RefreshThemeResources();
+			}
+
+			if (navigationView.MenuItemsSource is IList<NavigationViewItemViewModel> items)
+			{
+				foreach (var item in items)
+				{
+					item.SelectedTitleColor = brush;
+				}
+			}
+		}
+
+		public static void UpdateTopNavigationViewItemSelectedColor(this MauiNavigationView navigationView, Paint? paint)
+		{
+			var brush = paint?.ToPlatform();
+
+			if (navigationView.TopNavArea is not null)
+			{
+				if (brush is null)
+				{
+					navigationView.TopNavArea.Resources.Remove("NavigationViewSelectionIndicatorForeground");
+				}
+				else
+				{
+					// Use the TabBarForegroundColor to update the Indicator Brush
+					navigationView.TopNavArea.Resources["NavigationViewSelectionIndicatorForeground"] = brush;
+				}
+
+				navigationView.TopNavArea.RefreshThemeResources();
+			}
+
+			if (navigationView.MenuItemsSource is IList<NavigationViewItemViewModel> items)
+			{
+				foreach (var item in items)
+				{
+					item.SelectedForeground = brush;
+				}
+			}
+		}
+
+		public static void UpdateTopNavigationViewItemUnselectedColor(this MauiNavigationView navigationView, Paint? paint)
+		{
+			var brush = paint?.ToPlatform();
+
+			if (navigationView.MenuItemsSource is IList<NavigationViewItemViewModel> items)
+			{
+				foreach (var item in items)
+				{
+					item.UnselectedForeground = brush;
 				}
 			}
 		}
@@ -56,7 +132,7 @@ namespace Microsoft.Maui.Platform
 		public static void UpdateTopNavigationViewItemBackgroundUnselectedColor(this MauiNavigationView navigationView, Paint? paint)
 		{
 			var brush = paint?.ToPlatform();
-			if (navigationView.TopNavArea != null)
+			if (navigationView.TopNavArea is not null)
 			{
 				if (brush is null)
 				{
@@ -70,6 +146,8 @@ namespace Microsoft.Maui.Platform
 					navigationView.TopNavArea.Resources["TopNavigationViewItemBackgroundPointerOver"] = brush;
 					navigationView.TopNavArea.Resources["TopNavigationViewItemBackgroundPressed"] = brush;
 				}
+
+				navigationView.TopNavArea.RefreshThemeResources();
 			}
 
 			if (navigationView.MenuItemsSource is IList<NavigationViewItemViewModel> items)
@@ -84,7 +162,7 @@ namespace Microsoft.Maui.Platform
 		public static void UpdateTopNavigationViewItemBackgroundSelectedColor(this MauiNavigationView navigationView, Paint? paint)
 		{
 			var brush = paint?.ToPlatform();
-			if (navigationView.TopNavArea != null)
+			if (navigationView.TopNavArea is not null)
 			{
 				if (brush is null)
 				{
@@ -98,6 +176,8 @@ namespace Microsoft.Maui.Platform
 					navigationView.TopNavArea.Resources["TopNavigationViewItemBackgroundSelectedPointerOver"] = brush;
 					navigationView.TopNavArea.Resources["TopNavigationViewItemBackgroundSelectedPressed"] = brush;
 				}
+
+				navigationView.TopNavArea.RefreshThemeResources();
 			}
 
 			if (navigationView.MenuItemsSource is IList<NavigationViewItemViewModel> items)
@@ -111,38 +191,34 @@ namespace Microsoft.Maui.Platform
 
 		public static void UpdatePaneBackground(this MauiNavigationView navigationView, Paint? paint)
 		{
-			var rootSplitView = navigationView.RootSplitView;
+			var paneContentGrid = navigationView.PaneContentGrid;
+
+			if (paneContentGrid is null)
+				return;
+
 			var brush = paint?.ToPlatform();
 
-			if (brush == null)
+			if (brush is null)
 			{
-				object? color = null;
+				object? color;
 				if (navigationView.IsPaneOpen)
 					color = navigationView.Resources["NavigationViewExpandedPaneBackground"];
 				else
 					color = navigationView.Resources["NavigationViewDefaultPaneBackground"];
 
-				if (rootSplitView != null)
-				{
-					if (color is WBrush colorBrush)
-						rootSplitView.PaneBackground = colorBrush;
-					else if (color is global::Windows.UI.Color uiColor)
-						rootSplitView.PaneBackground = new WSolidColorBrush(uiColor);
-				}
+				if (color is WBrush colorBrush)
+					paneContentGrid.Background = colorBrush;
+				else if (color is global::Windows.UI.Color uiColor)
+					paneContentGrid.Background = new WSolidColorBrush(uiColor);
 			}
 			else
-			{
-				if (rootSplitView != null)
-				{
-					rootSplitView.PaneBackground = brush;
-				}
-			}
+				paneContentGrid.Background = brush;
 		}
 
 		public static void UpdateFlyoutVerticalScrollMode(this MauiNavigationView navigationView, ScrollMode scrollMode)
 		{
 			var scrollViewer = navigationView.MenuItemsScrollViewer;
-			if (scrollViewer != null)
+			if (scrollViewer is not null)
 			{
 				switch (scrollMode)
 				{
